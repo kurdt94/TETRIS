@@ -1,10 +1,12 @@
+//image preloader, grabbed from interwebz, more documentation will follow
+
 function BulkImageLoader()
 {
 	this.images = [];
 	this.imagesLoaded = 0;
 	this.isReady = false;
 	
-	this.onReadyCallback = function() { throw new Error("BulkImageLoader.onReadyCallback was not set"); };
+	this.onReadyCallback = function() { throw new Error("BulkImageLoader.onReadyCallback undefined"); };
 	this.onProgressCallback = function() 
 	{
 		var result;
