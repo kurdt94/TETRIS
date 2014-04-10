@@ -396,6 +396,7 @@ function zeroRow(row)
 	}
 }
 
+//drawboard. vult canvas met lege blokken
 function drawBoard()
 {
 	ctx.drawImage(bgImg, 0, 0, 320, 640, 0, 0, 320, 640);
@@ -406,6 +407,8 @@ function drawBoard()
 		{
 			if(gameData[r][c] != 0)
 			{
+			        //context.drawImage(img,sx,sy,swidth,sheight,x,y,width,height);
+				//(image, position(-1 to get 0=empty) * 32, 0, 32, 32, c * 32, r * 32, 32,32);
 				ctx.drawImage(blockImg, (gameData[r][c] - 1) * SIZE, 0, SIZE, SIZE, c * SIZE, r * SIZE, SIZE, SIZE);
 			}
 		}
