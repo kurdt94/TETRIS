@@ -1,0 +1,518 @@
+<!DOCTYPE HTML>
+    <html>
+        <head>
+            <link href="css/freestailo.css" media="screen" rel="stylesheet" />
+            <title>dat t3tr1s [by: k94]</title>
+        </head>
+        <body onload="init()">
+            <div class="wrapper">
+                <div class="header"><h1>tetris</h1><br/>
+                    <em>"powered by coffee and nosleep"</em></div>
+                <p class="soundcontrolroom"><a id="togglez" class="default On" onclick="fuckMusic()" href="javascript:void(0);"></a></p>
+                
+<div id="gameboard">
+    
+	<canvas id="gameCanvas" width="320" height="640"></canvas>
+</div>
+
+<div id="score" style="display: none;">
+	<p>Lines: <span id="lines"></span></p>
+        
+</div>
+<p>Points: <span id="points"></span></p>
+<p>Log: <span id="log"></span></p>
+<p><span id="displayStatus"></span></p>
+
+</div>
+
+<!--pieces.js declareert alle blokken-->
+<script type="text/javascript" src="js/pieces.js"></script>
+
+<script type="text/javascript" src="js/BulkImageLoader.js"></script>
+
+
+<script type="text/javascript">
+var ROWS = 20; //rows
+var COLS = 10; //columns
+var SIZE = 32; //32x32 == one block
+
+var dLog;
+var canvas; //canvas
+var ctx; //context
+var blockImg; //block image
+var bgImg; //background image
+var gameOverImg; //gameover overlay
+var curPiece; //piece
+var gameData; //data array
+var imgLoader; //img loader class
+var prevTime; //old time
+var curTime; //current time
+var isGameOver; //gameover ?
+var lineSpan; //lines counter <span>
+var pointsSpan; //points counter <span>
+var curLines; //current lines
+var log; //log
+var score; //score div
+var curPoints; //points
+var MusicState;
+var snd = new Audio("ttris.mp3");
+var snd1;
+var snd2;
+var snd3;
+
+//window onload, let op image preloader. volg functie
+window.onload = onReady;
+
+function onReady()
+{
+        //start nieuwe preload, zie BulkImageLoader.js
+	imgLoader = new BulkImageLoader();
+	imgLoader.addImage("blocks.png", "blocks");
+	imgLoader.addImage("bg.png", "bg");
+	imgLoader.addImage("over.png", "gameover");
+	imgLoader.onReadyCallback = onImagesLoaded; // functie laden onready
+	imgLoader.loadImages();
+        
+      
+   
+        ////create 3 sounds : music, click, lines, gameover .. 
+        
+        //var snd1 = new Audio("snd1.mp3");
+        //var snd2;
+        //var snd3;
+	
+	canvas = document.getElementById('gameCanvas');
+	ctx = canvas.getContext('2d'); //zie refs online
+	lineSpan = document.getElementById('lines');
+        pointsSpan = document.getElementById('points');
+        dLog = document.getElementById('log');
+        
+	
+	prevTime = curTime = 0;
+	document.onkeydown = getInput;
+}
+
+function getInput(e)
+{
+    //basic check
+	if(!e) { var e = window.event; }
+	e.preventDefault();
+        
+    //update log keycode
+        log = e.keyCode;
+        dLog.innerHTML = log.toString();
+        
+    //check GameOver anders doorgaan keypress event ophalen
+    //zie ook functie checkMove 
+	if(isGameOver != true)
+	{
+		switch(e.keyCode)
+		{
+                    //  LEFT
+			case 37:
+			{
+				if( checkMove(curPiece.gridx - 1, curPiece.gridy, curPiece.curState) )
+					curPiece.gridx--;
+			}
+			break;
+		    // RIGHT
+			case 39:
+			{
+				if( checkMove(curPiece.gridx + 1, curPiece.gridy, curPiece.curState) )
+				    curPiece.gridx++;
+			}
+			break;
+		    // UP
+			case 38:
+			{
+                            
+				var newState = curPiece.curState - 1;
+				if(newState < 0)
+					newState = curPiece.states.length - 1;
+
+				if( checkMove(curPiece.gridx, curPiece.gridy, newState) )
+					curPiece.curState = newState;
+			}
+			break;
+		    // DOWN
+			case 40:
+			{
+				if( checkMove(curPiece.gridx, curPiece.gridy + 1, curPiece.curState) )
+					curPiece.gridy++;
+			}
+			break;
+		}
+	}
+	else
+	{
+            
+            
+            //gameover is true, keypress is reset zie function
+
+            switch(e.keyCode){
+		case 13:
+			{
+				initGame();
+			}
+			break;
+                        
+                        }
+            
+	}
+}
+
+
+// -_>>Document Ready
+function onImagesLoaded(e)
+{
+    //declareer images en initGame
+	blockImg = imgLoader.getImageAtIndex(0);
+	bgImg = imgLoader.getImageAtIndex(1);
+	gameOverImg = imgLoader.getImageAtIndex(2);
+	initGame();
+}
+
+//let's do this
+function initGame()
+{
+    //declareren
+	var r, c;
+	curLines = 0;
+        curPoints = 0;
+	isGameOver = false;
+    
+ 
+        
+    //GameData aanmaken	
+	if(gameData == undefined)
+	{
+		gameData = new Array();
+	//dubbele for lus , vult GameData[r] (rows) & 	
+		for(r = 0; r < ROWS; r++)
+		{
+			gameData[r] = new Array();
+			for(c = 0; c < COLS; c++)
+			{
+				gameData[r].push(0); //0 = lege rij
+			}
+		}		
+	}
+        //verse start, zet alle cellen op 0
+	else
+	{
+		for(r = 0; r < ROWS; r++)
+		{
+			for(c = 0; c < COLS; c++)
+			{
+				gameData[r][c] = 0;
+			}
+		}
+	}
+	//haal het eerste blok op
+	curPiece = getRandomPiece();
+	
+        //zet <span> op 0
+	lineSpan.innerHTML = curLines.toString();
+	lineSpan.innerHTML = curLines.toString();
+        
+        //request browser functies
+	var requestAnimFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||
+	window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+	
+        //update window animation frame, start update function						
+	window.requestAnimationFrame = requestAnimFrame;
+	requestAnimationFrame(update);
+        
+        //see you in hell,.. score 
+        document.getElementById('score').style.display="none";
+}
+
+//aangeroepen door requestAnimationFrame %_% 
+function update()
+{
+        //zet de huidige tijd
+	curTime = new Date().getTime();
+       
+        
+        
+        
+        //update elke halve seconde
+	if(curTime - prevTime > 500)
+	{
+           curPoints++;
+           
+		// update blok
+		if( checkMove(curPiece.gridx, curPiece.gridy + 1, curPiece.curState) )
+		{
+			curPiece.gridy += 1;
+		}
+		else
+		{
+			copyData(curPiece);
+			curPiece = getRandomPiece();
+		}
+		
+		// update prevTime
+		prevTime = curTime;
+	}
+	
+	ctx.clearRect(0, 0, 320, 640);
+	drawBoard();
+	drawPiece(curPiece);
+	
+	if(isGameOver == false)
+	{
+        //keep update going
+	requestAnimationFrame(update);
+        
+        ctx.font = "bold 21px Arial";
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = "grey"; //Red
+        ctx.lineWidth = 1;
+        ctx.strokeText(curPoints, 10, 48);
+        
+        ctx.font = "bold 24px Arial";
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = "grey"; //Red
+        ctx.lineWidth = 1;
+        ctx.strokeText('score', 10, 20);
+	
+        }
+	else{
+        //gameover! drawImage[image, x, y, w, h, x, y, w, h]
+	ctx.drawImage(gameOverImg, 0, 0, 320, 640, 0, 0, 320, 640);
+        
+        ctx.font = "bold 21px Arial";
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = "grey"; //Red
+        ctx.lineWidth = 1;
+        ctx.strokeText(curPoints, 10, 48);
+        
+        ctx.font = "bold 24px Arial";
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = "grey"; //Red
+        ctx.lineWidth = 1;
+        ctx.strokeText('score', 10, 20);
+        
+        document.getElementById('score').style.display="";
+        }
+}
+
+// wanneer blok tegen gehouden is door een ander blok, vul gameData array
+function copyData(p)
+{
+	var xpos = p.gridx;
+	var ypos = p.gridy;
+	var state = p.curState;
+	
+	for(var r = 0, len = p.states[state].length; r < len; r++)
+	{
+		for(var c = 0, len2 = p.states[state][r].length; c < len2; c++)
+		{
+			if(p.states[state][r][c] == 1 && ypos >= 0)
+			{
+				gameData[ypos][xpos] = (p.color + 1);
+			}
+			
+			xpos += 1;
+		}
+		
+		xpos = p.gridx;
+		ypos += 1;
+	}
+	
+	checkLines();
+	
+	if(p.gridy < 0)
+	{
+		isGameOver = true;
+	}
+}
+
+function checkLines()
+{
+	var lineFound = false;
+	var fullRow = true;
+	var r = ROWS - 1;
+	var c = COLS - 1;
+	
+        pointsSpan.innerHTML = curPoints.toString();
+        
+	while(r >= 0)
+	{
+		while(c >= 0)
+		{
+			if(gameData[r][c] == 0)
+			{
+				fullRow = false;
+				c = -1;
+			}
+			c--;
+		}
+		
+		if(fullRow == true)
+		{
+			zeroRow(r);
+			r++;
+			lineFound = true;
+			curLines++;
+                        curPoints += 1000;
+		}
+                else{
+                    curPoints++;
+                }
+		
+		fullRow = true;
+		c = COLS - 1;
+		r--;
+	}
+	
+	if(lineFound)
+	{
+		lineSpan.innerHTML = curLines.toString();
+                
+	}
+}
+
+function zeroRow(row)
+{
+	var r = row;
+	var c = 0;
+	
+	while(r >= 0)
+	{
+		while(c < COLS)
+		{
+			if(r > 0)
+				gameData[r][c] = gameData[r-1][c];
+			else
+				gameData[r][c] = 0;
+				
+			c++;
+		}
+		
+		c = 0;
+		r--;
+	}
+}
+
+function drawBoard()
+{
+	ctx.drawImage(bgImg, 0, 0, 320, 640, 0, 0, 320, 640);
+	
+	for(var r = 0; r < ROWS; r++)
+	{
+		for(var c = 0; c < COLS; c++)
+		{
+			if(gameData[r][c] != 0)
+			{
+				ctx.drawImage(blockImg, (gameData[r][c] - 1) * SIZE, 0, SIZE, SIZE, c * SIZE, r * SIZE, SIZE, SIZE);
+			}
+		}
+	}
+}
+
+function drawPiece(p)
+{
+	var drawX = p.gridx;
+	var drawY = p.gridy;
+	var state = p.curState;
+	
+	for(var r = 0, len = p.states[state].length; r < len; r++)
+	{
+		for(var c = 0, len2 = p.states[state][r].length; c < len2; c++)
+		{
+			if(p.states[state][r][c] == 1 && drawY >= 0)
+			{
+				ctx.drawImage(blockImg, p.color * SIZE, 0, SIZE, SIZE, drawX * SIZE, drawY * SIZE, SIZE, SIZE);
+			}
+			
+			drawX += 1;
+		}
+		
+		drawX = p.gridx;
+		drawY += 1;
+	}
+}
+
+function checkMove(xpos, ypos, newState)
+{
+    
+    //declare input
+	var result = true;
+	var newx = xpos;
+	var newy = ypos;
+	
+        // loop through r
+	for(var r = 0, len = curPiece.states[newState].length; r < len; r++)
+	{
+		for(var c = 0, len2 = curPiece.states[newState][r].length; c < len2; c++)
+		{
+			if(newx < 0 || newx >= COLS)
+			{
+				result = false;
+				c = len2;
+				r = len;
+			}
+			
+			if(gameData[newy] != undefined && gameData[newy][newx] != 0
+				&& curPiece.states[newState][r] != undefined && curPiece.states[newState][r][c] != 0)
+			{
+				result = false;
+				c = len2;
+				r = len;
+			}
+			
+			newx += 1;
+		}
+		
+		newx = xpos;
+		newy += 1;
+		
+		if(newy > ROWS)
+		{
+			r = len;
+			result = false;
+		}
+	}
+	
+	return result;
+}
+
+
+
+var MusicState = 1;
+
+if(MusicState == 1){
+
+// start opening music
+snd.addEventListener('ended', function() {
+    this.currentTime = 0;
+    this.play();
+}, false);
+snd.play();
+
+}
+
+function fuckMusic(){
+   
+   snd.pause();
+   
+   var d = document.getElementById("togglez");
+   
+   if(d.className == "default On Off"){
+    snd.play();
+    d.className = "default On";
+    }
+   else{
+    d.className = d.className + " Off";
+    
+    } 
+    
+    //snd.currentTime = 0;
+}
+</script>
+
+        </body>
+        
+    </html>
